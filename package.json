@@ -5,7 +5,7 @@
   "description": "Convert types when parsing JSON according to known type schema",
   "main": "JSONSon.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "mocha"
   },
   "repository": {
     "type": "git",
@@ -23,5 +23,8 @@
   "bugs": {
     "url": "https://github.com/bbars/jsonson/issues"
   },
-  "homepage": "https://github.com/bbars/jsonson#readme"
+  "homepage": "https://github.com/bbars/jsonson#readme",
+  "devDependencies": {
+    "mocha": "^9.2.0"
+  }
 }
