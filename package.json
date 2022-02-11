@@ -1,0 +1,27 @@
+{
+  "type": "module",
+  "name": "jsonson",
+  "version": "1.0.0",
+  "description": "Convert types when parsing JSON according to known type schema",
+  "main": "JSONSon.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/bbars/jsonson.git"
+  },
+  "keywords": [
+    "json",
+    "parse",
+    "type",
+    "type schema",
+    "json schema"
+  ],
+  "author": "Denis Borzenko (bars)",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/bbars/jsonson/issues"
+  },
+  "homepage": "https://github.com/bbars/jsonson#readme"
+}

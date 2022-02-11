@@ -1,0 +1,388 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, minimum-scale=1, initial-scale=1, shrink-to-fit=no">
+<title>JSONSon - fromJSON demo</title>
+</head>
+<body>
+<p>
+	Check console output.
+</p>
+<p>
+	Legend:
+</p>
+<dl>
+	<dt>
+		<code>data</code>
+	</dt>
+	<dd>
+		Raw data
+	</dd>
+</dl>
+<dl>
+	<dt>
+		<code>json</code>
+	</dt>
+	<dd>
+		JSON stringified raw data
+	</dd>
+</dl>
+<dl>
+	<dt>
+		<code>parsed</code>
+	</dt>
+	<dd>
+		Parsed JSON and post-processed by JSONSon
+	</dd>
+</dl>
+<script type="module" src="./JSONSon.js"></script>
+<script>
+
+class FileInfo {
+	constructor({ path, mtime }) {
+		this.path = path;
+		this.mtime = mtime;
+	}
+	
+	get name() {
+		return this.path.split('/').pop();
+	}
+	
+	get parentPath() {
+		return this.path.split('/').slice(0, -1).join('/');
+	}
+	
+	static getJSONSonSchema() {
+		// Use JSON.Son instead of imported JSONSon:
+		return JSON.Son.mix(
+			this,
+			{
+				mtime: Date,
+			}
+		);
+	}
+}
+window.FileInfo = FileInfo;
+
+</script>
+<script type="module">
+
+// Following class is not exported to window.*
+class DirectoryInfo extends FileInfo {
+	static fromJSON(data) {
+		return new this({
+			path: data.path,
+			mtime: new Date(data.mtime),
+		});
+	}
+	
+	static getJSONSonSchema() {
+		return JSONSon.mix(
+			this,
+			{
+				childDirs: [this],
+				childFiles: [FileInfo],
+			}
+		);
+	}
+}
+
+import JSONSon from './JSONSon.js';
+
+window.data = window.json = window.schema = null; // declare vars
+window.JSONSon = JSONSon;
+
+class TestClass1 {
+	foo;
+	ololo;
+	
+	constructor(foo, ololo) {
+		this.foo = foo;
+		this.ololo = ololo;
+	}
+	
+	static fromJSON(data) {
+		return new this(data.foo, data.ololo);
+	}
+}
+
+class TestClass2 extends TestClass1 {
+	toJSON() {
+		return [this.foo, this.ololo];
+	}
+	
+	static fromJSON(data) {
+		return new this(data[0], data[1]);
+		// another way:
+		return {
+			foo: data[0],
+			ololo: data[1],
+			// extra: data[0] + '-' + data[1],
+		};
+	}
+}
+
+String.prototype.toJSON = function () {
+	const res = { _: this.toString() };
+	let hasProperties = false;
+	for (const name in this) {
+		if (!isNaN(name) && 0 <= name && name < this.length) {
+			// this is an indexed string character, so skip
+			continue;
+		}
+		if (name === 'length' || name === 'toJSON') {
+			continue;
+		}
+		hasProperties = true;
+		res[name] = this[name];
+	}
+	return !hasProperties ? this : res;
+};
+
+String.fromJSON = function (data) {
+	if (typeof data !== 'object') {
+		return new this(data);
+	}
+	const s = data._;
+	delete data._;
+	return new this(s);
+};
+
+//////////////////////////////////////////////
+//////////////////////////////////////////////
+//////////////////////////////////////////////
+
+console.log("Explicit schema object:");
+data = {
+	bool: true,
+	number: 1234,
+	string: 'ololo',
+	String: new String('Mememe'),
+	obj: {
+		date: new Date(),
+		dateAsMillis: Date.now(),
+		bool: false,
+	},
+	array: [1, '2', 3],
+	numArray: [1, 2, 3],
+	tuple: [true, 4321, 'String within tuple', new Date()],
+	rawType: { foo: 'bar', date: new Date() },
+	
+	StringWithProperty: (() => {
+		const res = new String("String with property");
+		res.extraProperty = '1234';
+		return res;
+	})(),
+};
+json = JSON.stringify(data);
+schema = new JSONSon({
+	bool: 'boolean',
+	number: 'number',
+	string: 'string',
+	String: String,
+	obj: {
+		date: Date,
+		dateAsMillis: Date, // or number?
+		bool: 'boolean',
+	},
+	array: Array,
+	numArray: ['number'],
+	tuple: ['boolean', 'number', 'string', Date],
+	// rawType: undefined,
+	StringWithProperty: JSONSon.mix(String, {
+		extraProperty: 'any', // convert to boolean
+	}),
+});
+console.log('data', data);
+console.log('json', json);
+console.log('parsed', schema.parse(json));
+console.log(new Array(80).fill('-').join(''));
+
+///////////////////////
+
+console.log("TestClass1:");
+data = new TestClass1('bar', 'mememe');
+json = JSON.stringify(data);
+schema = new JSONSon(TestClass1);
+console.log('data', data);
+console.log('json', json);
+console.log('parsed', schema.parse(json));
+console.log(new Array(80).fill('-').join(''));
+
+///////////////////////
+
+console.log("TestClass1 with 'extra' property:");
+data = new TestClass1('bar', 'mememe');
+data.extra = {
+	date: new Date(),
+	arr: [1, 2, 3],
+};
+json = JSON.stringify(data);
+schema = new JSONSon(JSONSon.mix(
+	TestClass1,
+	{
+		extra: {
+			date: Date,
+			arr: ['string'],
+		},
+	}
+));
+console.log('data', data);
+console.log('json', json);
+console.log('parsed', schema.parse(json));
+console.log(new Array(80).fill('-').join(''));
+
+///////////////////////
+
+console.log("Tuple 1:");
+data = [new Date(), new TestClass2('bar', 'mememe'), 1, '2', new String('3')];
+json = JSON.stringify(data);
+schema = new JSONSon([
+	Date,
+	TestClass2,
+	'number', // third and everything after - number
+]);
+console.log('data', data);
+console.log('json', json);
+console.log('parsed', schema.parse(json));
+console.log(new Array(80).fill('-').join(''));
+
+///////////////////////
+
+console.log("Tuple 2:");
+data = [1, new Date(), 3, 4, 5, 6, 7, 8, 9];
+json = JSON.stringify(data);
+schema = new JSONSon([
+	String,
+	Date,
+	Number, // third and everything after - Number
+]);
+console.log('data', data);
+console.log('json', json);
+console.log('parsed', schema.parse(json));
+console.log(new Array(80).fill('-').join(''));
+
+///////////////////////
+
+console.log("Directory and File:");
+let directory = new DirectoryInfo({
+	path: '/home/bars/projects/utils/js-json-son',
+	mtime: new Date('2022-02-02T23:44:00+0300'),
+});
+directory.childDirs = [
+	new DirectoryInfo({
+		path: '/home/bars/projects/utils/js-json-son/dir-1',
+		mtime: new Date('2022-01-02T23:31:00+0300'),
+	}),
+	new DirectoryInfo({
+		path: '/home/bars/projects/utils/js-json-son/dir-2',
+		mtime: new Date('2022-01-02T23:32:00+0300'),
+	}),
+];
+directory.childFiles = [
+	new DirectoryInfo({
+		path: '/home/bars/projects/utils/js-json-son/JSONSon.js',
+		mtime: new Date('2022-01-02T23:31:00+0300'),
+	}),
+	new DirectoryInfo({
+		path: '/home/bars/projects/utils/js-json-son/demo.html',
+		mtime: new Date('2022-01-03T00:00:00+0300'),
+	}),
+];
+
+data = directory;
+json = JSON.stringify(data);
+const directoryDemoJson = json;
+schema = new JSONSon(DirectoryInfo);
+console.log('data', data);
+console.log('json', json);
+console.log('parsed', schema.parse(json));
+console.log(new Array(80).fill('-').join(''));
+
+///////////////////////
+
+console.log("Nested JSONSon.mix:");
+
+let file = new FileInfo({
+	path: './README.md',
+	mtime: new Date(),
+});
+file.mimeType = 'text/markdown';
+
+data = file;
+json = JSON.stringify(data);
+schema = new JSONSon(JSONSon.mix(FileInfo, {
+	mimeType: String,
+}));
+
+console.log('data', data);
+console.log('json', json);
+console.log('parsed', schema.parse(json));
+console.log(new Array(80).fill('-').join(''));
+
+///////////////////////
+
+console.log("JSONSon <-> JSON:");
+// Moreover, you can JSON.stringify JSONSon itself
+// and parse on the other side:
+
+// You should define a way to resolve constructors
+// from its names:
+JSONSon.resolveConstructor = (name) => {
+	if (name === 'DirectoryInfo') {
+		// Since class DirectoryInfo is not exported to window.*,
+		// we should pass its constructor from current scope
+		return DirectoryInfo;
+	}
+	return window[name];
+};
+
+schema = new JSONSon({
+	str: 'string',
+	arr: ['number'],
+	foo: {
+		bar: 'string',
+	},
+	StringObject: String,
+	BigIntObject: BigInt,
+	DirectoryInfo: DirectoryInfo,
+	
+	mix: JSONSon.mix(FileInfo, { mimeType: String }),
+	enum: JSONSon.enum('f', 'm'),
+});
+console.log('schema', schema);
+debugger;
+let schemaJson = JSON.stringify(schema);
+console.log('schemaJson', schemaJson);
+schema = JSONSon.parse(JSONSon, schemaJson);
+console.log('schema parsed', schema);
+
+BigInt.prototype.toJSON = function () {
+	return this.toString(10);
+};
+
+data = {
+	str: "Here's a string",
+	arr: [null, true, 2, '3', 4n, 5, new Number(6)],
+	foo: {
+		bar: 'baz',
+	},
+	StringObject: new String("Here's a string object"),
+	BigIntObject: Object(BigInt(9007199254740993n)),
+	DirectoryInfo: directory,
+	
+	mix: file,
+	enum: 'm',
+};
+json = JSON.stringify(data);
+
+schema = JSONSon.parse(JSONSon, schemaJson);
+
+console.log('data', data);
+console.log('json', json);
+console.log('parsed', schema.parse(json));
+
+</script>
+</body>
+</html>
